@@ -2,7 +2,7 @@
 Command Line utility to automate test and live failovers for Zerto environments
 
 ## Getting Started
-The Zerto Faiover utility makes use of the supplied `com.assurestor.api.vendor.dll` file for all API calls to the local ZVM, please ensure this is included in all builds of the code.
+The Zerto Failover utility makes use of the supplied `com.assurestor.api.vendor.dll` file for all API calls to the local ZVM, please ensure this is included in all builds of the code.
 
 ## Prerequisites
 The utility makes use of a CSV file containing a list of the VPG/s to be failed over for testing or a live failover, along with any pre-defined pauses, an example csv file is included in the code directory called `example.csv`
