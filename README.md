@@ -30,7 +30,7 @@ In addition you can also specify:
 
 - **waitTime** = the number of seconds to wait before processing the specified commitPolicy (rollback or commit)
 
-**To start a live failover using the csv file example.csv with a commit policy ste to rollback after 30 minutes (1800 seconds)**
+**To start a live failover using the csv file example.csv with a commit policy set to rollback after 30 minutes (1800 seconds)**
 `zertoFailover.exe -c .\example.csv -m start -f live -p rollback -t 1800`
 
 ## Command Line Parameters
