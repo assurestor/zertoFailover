@@ -17,12 +17,21 @@ The utility makes use of a CSV file containing a list of the VPG/s to be failed 
 ## How to Use
 To run the utility you must provide the location of the CSV file and also the run mode (start or stop). These can be supplied using the command line parameters below.
 
+**To start a failover test using the csv file example.csv**
+`zertoFailover.exe -c .\example.csv -m start`
+
+**To stop a failover test using the csv file example.csv**
+`zertoFailover.exe -c .\example.csv -m stop`
+
 In addition you can also specify:
 - **failoverType** = If this is a test or live failover `**WARNING Live failover will shutdown the source VM if it is running, use with caution!**`
 
 - **commitPolicy** = for live failover's only, will set the commit policy as either rollback, commit or none. If set as rollback or commit this action will be performed automatically after the waitTime has expired
 
 - **waitTime** = the number of seconds to wait before processing the specified commitPolicy (rollback or commit)
+
+**To start a live failover using the csv file example.csv with a commit policy ste to rollback after 30 minutes (1800 seconds)**
+`zertoFailover.exe -c .\example.csv -m start -f live -p rollback -t 1800`
 
 ## Command Line Parameters
 -c, --csv             Required. point to the csv file containing vm/vpg build details
