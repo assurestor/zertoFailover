@@ -15,7 +15,20 @@ The utility makes use of a CSV file containing a list of the VPG/s to be failed 
 `Note. The header line must exist in the CSV file otheriwse it will error.`
 
 ## How to Use
-To run the utility you must provide the location of the CSV file and also the run mode (start or stop). These can be supplied using the command line parameters below.
+To run the utility you must first update `zertoFailover.ini` file with your vCenter and ZVm credentials. Note. if you are using self-signed SSL certificates you must ensure the machine you run the utility on trusts these certs.
+```
+[vCenter]
+uri = https://your.vcenter.ip
+username = vcenterUsername
+password = vcenterPassword
+
+[ZVM]
+uri = https://your.ZVM.ip
+username = zvmUsername
+password = zvmPassword
+```
+
+You can then run the `zertoFailover.exe` ensuring you  provide the location of the CSV file and also the run mode (start or stop). These can be supplied using the command line parameters below.
 
 **To start a failover test using the csv file example.csv**
 `zertoFailover.exe -c .\example.csv -m start`
