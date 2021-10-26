@@ -1,17 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using com.assurestor.api.vendor;
 using CommandLine;
 using CsvHelper;
 using IniParser;
 using IniParser.Model;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using zertoFailover;
 
 namespace ZertoFailover
 {
@@ -132,13 +127,15 @@ namespace ZertoFailover
             }
         }
 
+
+
         private static void Initialise()
         {
             var parser = new FileIniDataParser();
             IniData data = parser.ReadFile("zertoFailover.ini");
-            Common.vc = data["vCenter"]["uri"];
-            Common.vc_username = data["vCenter"]["username"];
-            Common.vc_password = data["vCenter"]["password"];
+            //Common.vc = data["vCenter"]["uri"];
+            //Common.vc_username = data["vCenter"]["username"];
+            //Common.vc_password = data["vCenter"]["password"];
             Common.zvm = data["ZVM"]["uri"];
             Common.zvm_username = data["ZVM"]["username"];
             Common.zvm_password = data["ZVM"]["password"];
@@ -197,8 +194,8 @@ namespace ZertoFailover
                 Stopwatch watch = new Stopwatch();
                 watch.Start();
                 Console.Clear();
-                Output.WriteLine("Zerto Failover Application");
-                Output.WriteLine("vCenter:       " + Common.vc);
+                Output.WriteLine("Zerto Failover Application v2.0");
+                //Output.WriteLine("vCenter:       " + Common.vc);
                 Output.WriteLine("ZVM:           " + Common.zvm);
                 Output.WriteLine("Mode:          " + o.Mode.ToUpper());
                 Output.WriteLine("Type:          " + o.FailoverType.ToUpper());
@@ -225,156 +222,72 @@ namespace ZertoFailover
                             if (o.Mode.ToUpper() == "START" && o.FailoverType.ToUpper() == "TEST")
                             // START TEST FAILOVER
                             {
-                                if (row.BuildGroup == 0)
+                                //START FAILOVER PROCESS
+                                Output.WriteLine("");
+                                Output.Write("Starting Failover Test for " + row.VpgName);
+                                try
                                 {
-                                    //START VM PROCESS
+                                    Task<bool> failoverTest = CheckTaskStatus(ZertoZvm.FailoverTest(row.VpgName, "").ToString());
+                                    failoverTest.Wait();
                                     Output.WriteLine("");
-                                    Output.WriteLine("Powering on VM " + row.VpgName);
-                                    try
+                                    if (failoverTest.Result == true)
                                     {
-                                        Dictionary<string, string> Parameters = new Dictionary<string, string>();
-                                        Parameters.Clear();
-                                        var vmSession = VmwareRest.GetSession(Common.vc, Common.vc_username, Common.vc_password, "application/json");
-                                        Parameters.Add("filter.names", row.VpgName);
-                                        var vmRef = JToken.Parse(VmwareRest.GetResult("/rest/vcenter/vm", Parameters));
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count == 0)
-                                        {
-                                            Output.WriteLine("Unable to find VM!");
-                                        }
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count > 1)
-                                        {
-                                            Output.WriteLine("Multiple VMs found, please confirm VM name is unique!");
-                                        }
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count == 1)
-                                        {
-                                            var vmResult = VmwareRest.PostRequest("/rest/vcenter/vm/" + vmRef.SelectToken("value.[0].vm") + "/power/start", null);
-                                            if (vmResult == "OK")
-                                            {
-                                                Output.WriteLine(row.VpgName + " powered on");
-                                            }
-                                            else
-                                            {
-                                                Output.WriteLine("Unable to power on " + row.VpgName);
-                                            }
-                                        }
+                                        Output.WriteLine("Built Failover Test for " + row.VpgName);
                                     }
-                                    catch (Exception e)
+                                    else
                                     {
+                                        Output.WriteLine("Unable to Build Failover Test for " + row.VpgName);
+                                    }
+                                    failoverTest.Dispose();
+                                    if (row.Delay > 0)
+                                    {
+                                        Output.WriteLine("Pausing for " + row.Delay + " seconds");
+                                        Task<bool> delay = Delay(row.Delay);
+                                        delay.Wait();
+                                        delay.Dispose();
                                         Output.WriteLine("");
-                                        Output.WriteLine("EXCEPTION " + e);
                                     }
                                 }
-                                else
+                                catch (Exception e)
                                 {
-                                    //START FAILOVER PROCESS
                                     Output.WriteLine("");
-                                    Output.Write("Starting Failover Test for " + row.VpgName);
-                                    try
-                                    {
-                                        Task<bool> failoverTest = CheckTaskStatus(ZertoZvm.FailoverTest(row.VpgName, "").ToString());
-                                        failoverTest.Wait();
-                                        Output.WriteLine("");
-                                        if (failoverTest.Result == true)
-                                        {
-                                            Output.WriteLine("Built Failover Test for " + row.VpgName);
-                                        }
-                                        else
-                                        {
-                                            Output.WriteLine("Unable to Build Failover Test for " + row.VpgName);
-                                        }
-                                        failoverTest.Dispose();
-                                        if (row.Delay > 0)
-                                        {
-                                            Output.WriteLine("Pausing for " + row.Delay + " seconds");
-                                            Task<bool> delay = Delay(row.Delay);
-                                            delay.Wait();
-                                            delay.Dispose();
-                                            Output.WriteLine("");
-                                        }
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        Output.WriteLine("");
-                                        Output.WriteLine("EXCEPTION " + e);
-                                    }
+                                    Output.WriteLine("EXCEPTION " + e);
                                 }
                             }
 
                             if (o.Mode.ToUpper() == "START" && o.FailoverType.ToUpper() == "LIVE")
                             // START LIVE FAILOVER
                             {
-                                if (row.BuildGroup == 0)
+                                //START FAILOVER PROCESS
+                                Output.WriteLine("");
+                                Output.Write("Starting Failover for " + row.VpgName);
+                                try
                                 {
-                                    //START VM PROCESS
+                                    Task<bool> failover = CheckTaskStatus(ZertoZvm.Failover(row.VpgName, "", GetCommitPolicy(o.CommitPolicy), o.WaitTime).ToString());
+                                    failover.Wait();
                                     Output.WriteLine("");
-                                    Output.WriteLine("Powering on VM " + row.VpgName);
-                                    try
+                                    if (failover.Result == true)
                                     {
-                                        Dictionary<string, string> Parameters = new Dictionary<string, string>();
-                                        Parameters.Clear();
-                                        var vmSession = VmwareRest.GetSession(Common.vc, Common.vc_username, Common.vc_password, "application/json");
-                                        Parameters.Add("filter.names", row.VpgName);
-                                        var vmRef = JToken.Parse(VmwareRest.GetResult("/rest/vcenter/vm", Parameters));
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count == 0)
-                                        {
-                                            Output.WriteLine("Unable to find VM!");
-                                        }
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count > 1)
-                                        {
-                                            Output.WriteLine("Multiple VMs found, please confirm VM name is unique!");
-                                        }
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count == 1)
-                                        {
-                                            var vmResult = VmwareRest.PostRequest("/rest/vcenter/vm/" + vmRef.SelectToken("value.[0].vm") + "/power/start", null);
-                                            if (vmResult == "OK")
-                                            {
-                                                Output.WriteLine(row.VpgName + " powered on");
-                                            }
-                                            else
-                                            {
-                                                Output.WriteLine("Unable to power on " + row.VpgName);
-                                            }
-                                        }
+                                        Output.WriteLine("Built Failover for " + row.VpgName);
                                     }
-                                    catch (Exception e)
+                                    else
                                     {
+                                        Output.WriteLine("Unable to Build Failover for " + row.VpgName);
+                                    }
+                                    failover.Dispose();
+                                    if (row.Delay > 0)
+                                    {
+                                        Output.WriteLine("Pausing for " + row.Delay + " seconds");
+                                        Task<bool> delay = Delay(row.Delay);
+                                        delay.Wait();
+                                        delay.Dispose();
                                         Output.WriteLine("");
-                                        Output.WriteLine("EXCEPTION " + e);
                                     }
                                 }
-                                else
+                                catch (Exception e)
                                 {
-                                    //START FAILOVER PROCESS
                                     Output.WriteLine("");
-                                    Output.Write("Starting Failover for " + row.VpgName);
-                                    try
-                                    {
-                                        Task<bool> failover = CheckTaskStatus(ZertoZvm.Failover(row.VpgName, "", GetCommitPolicy(o.CommitPolicy), o.WaitTime).ToString());
-                                        failover.Wait();
-                                        Output.WriteLine("");
-                                        if (failover.Result == true)
-                                        {
-                                            Output.WriteLine("Built Failover for " + row.VpgName);
-                                        }
-                                        else
-                                        {
-                                            Output.WriteLine("Unable to Build Failover for " + row.VpgName);
-                                        }
-                                        failover.Dispose();
-                                        if (row.Delay > 0)
-                                        {
-                                            Output.WriteLine("Pausing for " + row.Delay + " seconds");
-                                            Task<bool> delay = Delay(row.Delay);
-                                            delay.Wait();
-                                            delay.Dispose();
-                                            Output.WriteLine("");
-                                        }
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        Output.WriteLine("");
-                                        Output.WriteLine("EXCEPTION " + e);
-                                    }
+                                    Output.WriteLine("EXCEPTION " + e);
                                 }
 
                             }
@@ -382,70 +295,28 @@ namespace ZertoFailover
                             if (o.Mode.ToUpper() == "STOP" && o.FailoverType.ToUpper() == "TEST")
                             // STOP TEST FAILOVER
                             {
-                                if (row.BuildGroup == 0)
+                                //STOP FAILOVER PROCESS
+                                Output.WriteLine("");
+                                Output.Write("Stopping Failover Test for " + row.VpgName);
+                                try
                                 {
-                                    //STOP VM PROCESS
+                                    Task<bool> stopFailover = CheckTaskStatus(ZertoZvm.FailoverTestStop(row.VpgName).ToString());
+                                    stopFailover.Wait();
                                     Output.WriteLine("");
-                                    Output.WriteLine("Powering off VM " + row.VpgName);
-                                    try
+                                    if (stopFailover.Result == true)
                                     {
-                                        Dictionary<string, string> Parameters = new Dictionary<string, string>();
-                                        Parameters.Clear();
-                                        var vmSession = VmwareRest.GetSession(Common.vc, Common.vc_username, Common.vc_password, "application/json");
-                                        Parameters.Add("filter.names", row.VpgName);
-                                        var vmRef = JToken.Parse(VmwareRest.GetResult("/rest/vcenter/vm", Parameters));
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count == 0)
-                                        {
-                                            Output.WriteLine("Unable to find VM!");
-                                        }
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count > 1)
-                                        {
-                                            Output.WriteLine("Multiple VMs found, please confirm VM name is unique!");
-                                        }
-                                        if (JArray.FromObject(vmRef.SelectToken("value")).Count == 1)
-                                        {
-                                            var vmResult = VmwareRest.PostRequest("/rest/vcenter/vm/" + vmRef.SelectToken("value.[0].vm") + "/power/stop", null);
-                                            if (vmResult == "OK")
-                                            {
-                                                Output.WriteLine(row.VpgName + " powered off");
-                                            }
-                                            else
-                                            {
-                                                Output.WriteLine("Unable to power off " + row.VpgName);
-                                            }
-                                        }
+                                        Output.WriteLine("Destroyed Failover Test for " + row.VpgName);
                                     }
-                                    catch (Exception e)
+                                    else
                                     {
-                                        Output.WriteLine("");
-                                        Output.WriteLine("EXCEPTION " + e.Message);
+                                        Output.WriteLine("Unable to Destroy Failover Test for " + row.VpgName);
                                     }
+                                    stopFailover.Dispose();
                                 }
-                                else
+                                catch (Exception e)
                                 {
-                                    //STOP FAILOVER PROCESS
                                     Output.WriteLine("");
-                                    Output.Write("Stopping Failover Test for " + row.VpgName);
-                                    try
-                                    {
-                                        Task<bool> stopFailover = CheckTaskStatus(ZertoZvm.FailoverTestStop(row.VpgName).ToString());
-                                        stopFailover.Wait();
-                                        Output.WriteLine("");
-                                        if (stopFailover.Result == true)
-                                        {
-                                            Output.WriteLine("Destroyed Failover Test for " + row.VpgName);
-                                        }
-                                        else
-                                        {
-                                            Output.WriteLine("Unable to Destroy Failover Test for " + row.VpgName);
-                                        }
-                                        stopFailover.Dispose();
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        Output.WriteLine("");
-                                        Output.WriteLine("EXCEPTION " + e.Message);
-                                    }
+                                    Output.WriteLine("EXCEPTION " + e.Message);
                                 }
                             }
 
